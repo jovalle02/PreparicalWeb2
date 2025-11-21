@@ -13,6 +13,7 @@ API REST desarrollada con NestJS para la planificación de viajes. Permite gesti
 - [Modelo de Datos](#modelo-de-datos)
 - [Provider Externo](#provider-externo)
 - [Pruebas Básicas](#pruebas-básicas)
+- [Extensión del API Parcial](#extensión-del-api-parcial-70)
 
 ## Requisitos Previos
 
@@ -379,11 +380,212 @@ Content-Type: application/json
 }
 ```
 
-## Tecnologías Utilizadas
+## Extensión del API (Parcial 70%)
 
-- NestJS 10.x
-- TypeORM 0.3.x
-- SQLite 3
-- Axios
-- class-validator
-- class-transformer
+### Descripción de la Extensión
+
+Se amplió la funcionalidad del API incorporando capacidades de eliminación controlada de países del sistema de caché, protección mediante autorización basada en tokens y registro detallado de actividad. La extensión respeta completamente la arquitectura modular establecida en el preparcial, agregando un nuevo endpoint DELETE al CountriesModule, implementando un guard de autorización para proteger operaciones sensibles y añadiendo un middleware de logging que registra todas las peticiones realizadas a los módulos principales de la aplicación.
+
+Las modificaciones incluyen validaciones adicionales que previenen la eliminación de países que tienen planes de viaje asociados, garantizando la integridad referencial de los datos. El sistema de autorización implementado mediante guards permite controlar el acceso a operaciones críticas, mientras que el middleware de logging proporciona trazabilidad completa de todas las operaciones realizadas en el sistema, registrando método HTTP, ruta, código de estado y tiempo de procesamiento de cada petición.
+
+---
+
+### Endpoint Protegido - DELETE /countries/:code
+
+#### Descripción
+
+Permite eliminar un país de la base de datos local (caché) únicamente si no existen planes de viaje asociados a él y si la petición incluye un token de autorización válido.
+
+#### Autorización Requerida
+
+El endpoint requiere el header `x-api-token` con el valor correcto para permitir la operación.
+
+```
+x-api-token: clase-web-2025-seguro
+```
+
+#### Casos de Uso y Validación
+
+**1. Eliminar país sin token (Debe Fallar - 401 Unauthorized):**
+
+```
+DELETE http://localhost:3000/countries/FRA
+```
+
+**Respuesta:**
+```json
+{
+  "statusCode": 401,
+  "message": "API token is required",
+  "error": "Unauthorized"
+}
+```
+
+**2. Eliminar país con token incorrecto (Debe Fallar - 401 Unauthorized):**
+
+```
+DELETE http://localhost:3000/countries/FRA
+Headers:
+  x-api-token: token-incorrecto
+```
+
+**Respuesta:**
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid API token",
+  "error": "Unauthorized"
+}
+```
+
+**3. Eliminar país que no existe en caché (Debe Fallar - 404 Not Found):**
+
+```
+DELETE http://localhost:3000/countries/XXX
+Headers:
+  x-api-token: clase-web-2025-seguro
+```
+
+**Respuesta:**
+```json
+{
+  "statusCode": 404,
+  "message": "Country with code XXX not found in cache",
+  "error": "Not Found"
+}
+```
+
+**4. Eliminar país con planes de viaje asociados (Debe Fallar - 400 Bad Request):**
+
+Primero crear un plan asociado:
+```
+POST http://localhost:3000/travel-plans
+Content-Type: application/json
+
+{
+  "countryCode": "COL",
+  "title": "Vacaciones",
+  "startDate": "2025-12-01",
+  "endDate": "2025-12-15"
+}
+```
+
+Luego intentar eliminar el país:
+```
+DELETE http://localhost:3000/countries/COL
+Headers:
+  x-api-token: clase-web-2025-seguro
+```
+
+**Respuesta:**
+```json
+{
+  "statusCode": 400,
+  "message": "Cannot delete country COL. There are travel plans associated with it.",
+  "error": "Bad Request"
+}
+```
+
+**5. Eliminar país exitosamente (Debe Funcionar - 200 OK):**
+
+Primero consultar un país nuevo sin planes asociados:
+```
+GET http://localhost:3000/countries/FRA
+```
+
+Luego eliminarlo:
+```
+DELETE http://localhost:3000/countries/FRA
+Headers:
+  x-api-token: clase-web-2025-seguro
+```
+
+**Respuesta:**
+```json
+{
+  "message": "Country FRA successfully removed from cache"
+}
+```
+
+---
+
+### Guard de Autorización
+
+#### Descripción
+
+El `ApiTokenGuard` es un guard personalizado que valida la presencia y validez del token de autorización en el header de las peticiones.
+
+#### Funcionamiento
+
+1. **Intercepta la petición**: Antes de que llegue al controlador, el guard examina los headers de la petición.
+2. **Valida presencia del token**: Verifica que el header `x-api-token` esté presente.
+3. **Valida el valor del token**: Compara el token recibido con el token válido configurado.
+4. **Permite o deniega acceso**: Si el token es válido, permite continuar; caso contrario, lanza una excepción `UnauthorizedException`.
+
+#### Implementación
+
+El guard se aplica únicamente al endpoint DELETE mediante el decorador `@UseGuards(ApiTokenGuard)`:
+
+```typescript
+@Delete(':code')
+@UseGuards(ApiTokenGuard)
+async remove(@Param('code') code: string) {
+  return this.countriesService.remove(code);
+}
+```
+
+#### Validación del Guard
+
+Para validar que el guard funciona correctamente:
+
+1. **Sin token**: La petición debe ser rechazada con código 401 y mensaje "API token is required"
+2. **Token incorrecto**: La petición debe ser rechazada con código 401 y mensaje "Invalid API token"
+3. **Token correcto**: La petición debe continuar normalmente y ejecutar la lógica del endpoint
+
+---
+
+### Middleware de Logging
+
+#### Descripción
+
+El `LoggingMiddleware` registra información detallada de cada petición HTTP procesada por el API, proporcionando trazabilidad y facilitando la depuración.
+
+#### Funcionamiento
+
+1. **Intercepta peticiones entrantes**: El middleware se ejecuta antes de que la petición llegue al controlador.
+2. **Registra tiempo de inicio**: Captura el timestamp al inicio del procesamiento.
+3. **Permite continuar el flujo**: Llama a `next()` para que la petición continúe su procesamiento normal.
+4. **Escucha el evento 'finish'**: Cuando la respuesta está lista para ser enviada, calcula métricas.
+5. **Registra información completa**: Imprime en consola el log con todos los detalles de la petición.
+
+#### Información Registrada
+
+Cada log incluye:
+- **Timestamp**: Fecha y hora exacta en formato ISO
+- **Método HTTP**: GET, POST, DELETE, etc.
+- **Ruta**: URL completa de la petición
+- **Código de estado**: Código HTTP de la respuesta (200, 404, 401, etc.)
+- **Tiempo de procesamiento**: Duración total en milisegundos
+
+#### Formato del Log
+
+```
+[2025-11-21T15:04:52.409Z] GET /countries - Status: 200 - Time: 5ms
+```
+
+#### Rutas Monitoreadas
+
+El middleware está configurado para aplicarse a:
+- Todas las rutas de `/countries`
+- Todas las rutas de `/travel-plans`
+
+#### Validación del Middleware
+
+Para verificar que el middleware funciona correctamente:
+
+1. **Iniciar la aplicación** y observar la consola
+2. **Realizar cualquier petición** a `/countries` o `/travel-plans`
+3. **Verificar que aparezca el log** en la consola con el formato especificado
+4. **Confirmar que incluye**: timestamp, método, ruta, código de estado y tiempo
+
+**Nota: Adicionalmente se provee un archivo con el suite de pruebas para ejecutar en Postman con el fin de hacer el proceso de testing más sencillo (ParcialWEB.postman_collection).**

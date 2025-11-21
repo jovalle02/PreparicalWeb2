@@ -1,0 +1,290 @@
+{
+	"info": {
+		"_postman_id": "7fd79c2d-ddac-4b6b-84fe-f72bd3f6c6b5",
+		"name": "ParcialWEB",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "37642712"
+	},
+	"item": [
+		{
+			"name": "Get specific country",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/countries/PAN",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"countries",
+						"PAN"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get all countries",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/countries",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"countries"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create travel plan",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"countryCode\": \"COL\",\r\n  \"title\": \"Vacaciones en Colombia\",\r\n  \"startDate\": \"2025-12-01\",\r\n  \"endDate\": \"2025-12-15\",\r\n  \"notes\": \"Visitar Cartagena, Bogotá y Medellín\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/travel-plans",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"travel-plans"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create plan without cached country",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"countryCode\": \"ESP\",\r\n  \"title\": \"Viaje a España\",\r\n  \"startDate\": \"2026-06-01\",\r\n  \"endDate\": \"2026-06-20\",\r\n  \"notes\": \"Madrid, Barcelona y Valencia\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/travel-plans",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"travel-plans"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Wrong country code for travel plan",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"countryCode\": \"co\",\r\n  \"title\": \"Plan con código incorrecto\",\r\n  \"startDate\": \"2025-12-01\",\r\n  \"endDate\": \"2025-12-15\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/travel-plans",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"travel-plans"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get all travel plans",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/travel-plans",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"travel-plans"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get an specific travel plan",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/travel-plans/57e2b80e-664d-47fc-b5a4-230d53a92c49",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"travel-plans",
+						"57e2b80e-664d-47fc-b5a4-230d53a92c49"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get non existant specific plan",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/travel-plans/123",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"travel-plans",
+						"123"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete country valid token",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "x-api-token",
+						"value": "my-secret-token-2024",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/countries/COL",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"countries",
+						"COL"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete country with invalid token",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "x-api-token",
+						"value": "clase-web-2025-not-seguro",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/countries/USA",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"countries",
+						"USA"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete country with no token",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/countries/USA",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"countries",
+						"USA"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete country with valid token but non existant country in cache",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "x-api-token",
+						"value": "clase-web-2025-seguro",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "http://localhost:3000/countries/USA",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"countries",
+						"USA"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

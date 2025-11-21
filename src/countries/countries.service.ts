@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Country } from './entities/country.entity';
@@ -51,4 +51,41 @@ export class CountriesService {
       updatedAt: country.updatedAt,
     };
   }
+
+  async remove(code: string): Promise<{ message: string }> {
+  const upperCode = code.toUpperCase();
+
+  const country = await this.countryRepository.findOne({
+    where: { code: upperCode },
+  });
+
+  if (!country) {
+    throw new NotFoundException(`Country with code ${upperCode} not found in cache`);
+  }
+
+  const hasPlans = await this.checkIfCountryHasPlans(upperCode);
+  
+  if (hasPlans) {
+    throw new BadRequestException(
+      `Cannot delete country ${upperCode}. There are travel plans associated with it.`
+    );
+  }
+
+  await this.countryRepository.remove(country);
+
+  return {
+    message: `Country ${upperCode} successfully removed from cache`,
+  };
+}
+
+private async checkIfCountryHasPlans(countryCode: string): Promise<boolean> {
+  const connection = this.countryRepository.manager.connection;
+  const travelPlanRepository = connection.getRepository('TravelPlan');
+  
+  const count = await travelPlanRepository.count({
+    where: { countryCode },
+  });
+
+  return count > 0;
+}
 }
