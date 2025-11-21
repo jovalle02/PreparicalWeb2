@@ -149,7 +149,6 @@ Busca un país por su código alpha-3. Si el país existe en la base de datos, l
 **Respuesta de ejemplo (consultas posteriores):**
 ```json
 {
-  ...
   "source": "cache"
 }
 ```
