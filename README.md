@@ -1,98 +1,390 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Travel Planner API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST desarrollada con NestJS para la planificación de viajes. Permite gestionar información de países consumiendo datos de RestCountries API y crear planes de viaje asociados a países específicos, utilizando SQLite como sistema de caché local.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tabla de Contenidos
 
-## Description
+- [Requisitos Previos](#requisitos-previos)
+- [Instalación](#instalación)
+- [Configuración](#configuración)
+- [Ejecución](#ejecución)
+- [Arquitectura](#arquitectura)
+- [Endpoints](#endpoints)
+- [Modelo de Datos](#modelo-de-datos)
+- [Provider Externo](#provider-externo)
+- [Pruebas Básicas](#pruebas-básicas)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Requisitos Previos
 
-## Project setup
+- Node.js (v16 o superior)
+- npm (v7 o superior)
+
+## Instalación
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+### Dependencias Principales
+
+- @nestjs/core, @nestjs/common: Framework base
+- @nestjs/typeorm, typeorm, sqlite3: ORM y base de datos
+- @nestjs/axios, axios: Cliente HTTP para consumir APIs externas
+- class-validator, class-transformer: Validación de datos en DTOs
+
+## Configuración
+
+### Base de Datos
+
+El proyecto utiliza SQLite como base de datos. La configuración se encuentra en `src/app.module.ts`:
+
+```typescript
+TypeOrmModule.forRoot({
+  type: 'sqlite',
+  database: 'database.sqlite',
+  entities: [__dirname + '/**/*.entity{.ts,.js}'],
+  synchronize: true,
+})
+```
+
+El archivo `database.sqlite` se crea automáticamente en la raíz del proyecto al ejecutar la aplicación por primera vez. La opción `synchronize: true` crea las tablas automáticamente basándose en las entidades definidas.
+
+## Ejecución
+
+### Modo Desarrollo
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm run start:dev
 ```
 
-## Run tests
+La API estará disponible en `http://localhost:3000`
+
+### Modo Producción
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run build
+npm run start:prod
 ```
 
-## Deployment
+## Arquitectura
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+La aplicación está organizada en dos módulos principales:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### CountriesModule
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+Módulo encargado de gestionar la información de países. Implementa un sistema de caché que consulta primero la base de datos local y, si el país no existe, lo obtiene desde la API externa de RestCountries, lo almacena en la base de datos y lo devuelve.
+
+**Componentes:**
+- `CountriesController`: Maneja las rutas HTTP relacionadas con países
+- `CountriesService`: Contiene la lógica de negocio y gestión del caché
+- `RestCountriesApiService`: Provider que encapsula las llamadas a la API externa
+- `Country`: Entidad que representa la tabla de países en la base de datos
+
+### TravelPlansModule
+
+Módulo dedicado a la gestión de planes de viaje. Cada plan está asociado a un país específico mediante su código alpha-3. Antes de crear un plan, verifica que el país exista en el sistema, utilizando el módulo de países para obtenerlo si es necesario.
+
+**Componentes:**
+- `TravelPlansController`: Maneja las rutas HTTP de planes de viaje
+- `TravelPlansService`: Implementa la lógica para crear y consultar planes
+- `TravelPlan`: Entidad que representa la tabla de planes de viaje
+
+## Endpoints
+
+### Countries
+
+#### Listar todos los países en caché
+
+```
+GET /countries
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Retorna todos los países almacenados en la base de datos local.
 
-## Resources
+**Respuesta de ejemplo:**
+```json
+[
+  {
+    "code": "COL",
+    "name": "Colombia",
+    "region": "Americas",
+    "subregion": "South America",
+    "capital": "Bogotá",
+    "population": 50882884,
+    "flagUrl": "https://flagcdn.com/w320/co.png",
+    "source": "cache",
+    "createdAt": "2025-11-20T10:30:00.000Z",
+    "updatedAt": "2025-11-20T10:30:00.000Z"
+  }
+]
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+#### Consultar país por código
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```
+GET /countries/:code
+```
 
-## Support
+Busca un país por su código alpha-3. Si el país existe en la base de datos, lo devuelve indicando `source: "cache"`. Si no existe, lo consulta desde RestCountries API, lo guarda en la base de datos y lo devuelve indicando `source: "api"`.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+**Parámetros:**
+- `code`: Código alpha-3 del país (ej: COL, USA, FRA)
 
-## Stay in touch
+**Respuesta de ejemplo (primera consulta):**
+```json
+{
+  "code": "COL",
+  "name": "Colombia",
+  "region": "Americas",
+  "subregion": "South America",
+  "capital": "Bogotá",
+  "population": 50882884,
+  "flagUrl": "https://flagcdn.com/w320/co.png",
+  "source": "api",
+  "createdAt": "2025-11-20T10:30:00.000Z",
+  "updatedAt": "2025-11-20T10:30:00.000Z"
+}
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**Respuesta de ejemplo (consultas posteriores):**
+```json
+{
+  ...
+  "source": "cache"
+}
+```
 
-## License
+### Travel Plans
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+#### Crear un plan de viaje
+
+```
+POST /travel-plans
+```
+
+Crea un nuevo plan de viaje asociado a un país. Valida que el país exista en el sistema y que las fechas sean válidas.
+
+**Body:**
+```json
+{
+  "countryCode": "COL",
+  "title": "Vacaciones en Colombia",
+  "startDate": "2025-12-01",
+  "endDate": "2025-12-15",
+  "notes": "Visitar Cartagena, Bogotá y Medellín"
+}
+```
+
+**Validaciones:**
+- `countryCode`: Debe ser exactamente 3 letras mayúsculas
+- `title`: Obligatorio, no puede estar vacío
+- `startDate`: Formato ISO (YYYY-MM-DD)
+- `endDate`: Formato ISO, debe ser posterior o igual a startDate
+- `notes`: Opcional
+
+**Respuesta:**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "countryCode": "COL",
+  "country": {
+    "code": "COL",
+    "name": "Colombia",
+    "region": "Americas",
+    "capital": "Bogotá",
+    "flagUrl": "https://flagcdn.com/w320/co.png"
+  },
+  "title": "Vacaciones en Colombia",
+  "startDate": "2025-12-01T00:00:00.000Z",
+  "endDate": "2025-12-15T00:00:00.000Z",
+  "notes": "Visitar Cartagena, Bogotá y Medellín",
+  "createdAt": "2025-11-20T10:35:00.000Z"
+}
+```
+
+#### Listar todos los planes de viaje
+
+```
+GET /travel-plans
+```
+
+Retorna todos los planes de viaje registrados, incluyendo la información del país asociado.
+
+#### Consultar un plan específico
+
+```
+GET /travel-plans/:id
+```
+
+Retorna un plan de viaje específico por su identificador UUID.
+
+**Parámetros:**
+- `id`: Identificador UUID del plan
+
+## Modelo de Datos
+
+### Country
+
+Entidad que representa un país en la base de datos.
+
+```typescript
+{
+  code: string;           // Código alpha-3 (PK)
+  name: string;           // Nombre del país
+  region: string;         // Región geográfica
+  subregion: string;      // Subregión
+  capital: string;        // Capital
+  population: number;     // Población
+  flagUrl: string;        // URL de la bandera
+  createdAt: Date;        // Fecha de creación
+  updatedAt: Date;        // Fecha de última actualización
+}
+```
+
+### TravelPlan
+
+Entidad que representa un plan de viaje.
+
+```typescript
+{
+  id: string;             // UUID (PK)
+  countryCode: string;    // Código del país (FK)
+  country: Country;       // Relación con Country
+  title: string;          // Título del viaje
+  startDate: Date;        // Fecha de inicio
+  endDate: Date;          // Fecha de fin
+  notes: string;          // Notas opcionales
+  createdAt: Date;        // Fecha de creación
+}
+```
+
+La relación entre `TravelPlan` y `Country` se establece mediante el campo `countryCode` que referencia al campo `code` de la tabla de países.
+
+## Provider Externo
+
+### RestCountriesApiService
+
+El proyecto implementa un provider especializado que encapsula las llamadas a la API externa de RestCountries. Este patrón permite separar la lógica de negocio de los detalles de implementación de la infraestructura.
+
+**Características:**
+
+1. **Interfaz definida**: Se define un contrato `ICountriesApiService` que especifica las operaciones disponibles.
+
+2. **Implementación específica**: `RestCountriesApiService` implementa esta interfaz consumiendo la API de RestCountries.
+
+3. **Optimización de consultas**: Las peticiones a RestCountries incluyen el parámetro `fields` para limitar los datos recibidos:
+   ```
+   https://restcountries.com/v3.1/alpha/COL?fields=cca3,name,region,subregion,capital,population,flags
+   ```
+
+4. **Inyección de dependencias**: El provider se registra en el módulo usando un token personalizado y se inyecta en el servicio de países mediante `@Inject('COUNTRIES_API_SERVICE')`.
+
+**Ventajas de este enfoque:**
+- Facilita el testing mediante la creación de mocks
+- Permite cambiar la implementación sin modificar el servicio de países
+- Separa claramente las responsabilidades entre lógica de negocio e infraestructura
+
+## Pruebas Básicas
+
+### Consultar un país no cacheado
+
+**Request:**
+```
+GET http://localhost:3000/countries/COL
+```
+
+**Comportamiento esperado:**
+- El país no existe en la base de datos
+- Se consulta la API de RestCountries
+- Se guarda en la base de datos
+- Se retorna con `source: "api"`
+
+### Consultar un país cacheado
+
+**Request:**
+```
+GET http://localhost:3000/countries/COL
+```
+
+**Comportamiento esperado:**
+- El país existe en la base de datos (de la consulta anterior)
+- Se retorna directamente desde la base de datos
+- Se retorna con `source: "cache"`
+- No se hace llamada a la API externa
+
+### Crear un plan de viaje con país nuevo
+
+**Request:**
+```
+POST http://localhost:3000/travel-plans
+Content-Type: application/json
+
+{
+  "countryCode": "ESP",
+  "title": "Viaje a España",
+  "startDate": "2026-06-01",
+  "endDate": "2026-06-20",
+  "notes": "Madrid, Barcelona y Valencia"
+}
+```
+
+**Comportamiento esperado:**
+- El sistema verifica que ESP exista
+- Como no está en caché, lo consulta de RestCountries
+- Guarda el país en la base de datos
+- Crea el plan de viaje
+- Retorna el plan con la información del país
+
+### Crear un plan con validaciones incorrectas
+
+**Request con fechas inválidas:**
+```
+POST http://localhost:3000/travel-plans
+Content-Type: application/json
+
+{
+  "countryCode": "COL",
+  "title": "Plan con fechas incorrectas",
+  "startDate": "2025-12-15",
+  "endDate": "2025-12-01"
+}
+```
+
+**Respuesta esperada (400 Bad Request):**
+```json
+{
+  "statusCode": 400,
+  "message": "End date must be after or equal to start date",
+  "error": "Bad Request"
+}
+```
+
+**Request con código de país inválido:**
+```json
+{
+  "countryCode": "co",
+  "title": "Plan con código incorrecto",
+  "startDate": "2025-12-01",
+  "endDate": "2025-12-15"
+}
+```
+
+**Respuesta esperada (400 Bad Request):**
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "Country code must be 3 uppercase letters (e.g., COL, USA, FRA)"
+  ],
+  "error": "Bad Request"
+}
+```
+
+## Tecnologías Utilizadas
+
+- NestJS 10.x
+- TypeORM 0.3.x
+- SQLite 3
+- Axios
+- class-validator
+- class-transformer
